@@ -1,333 +1,361 @@
-# ☁️ AWS End-to-End Data Engineering Pipeline
+# ☁️ AWS Data Engineering Pipeline
 
 <p align="center">
 
-### A Serverless Cloud Data Pipeline for Ingestion, Cataloging, Transformation & SQL Analytics
+### Serverless S3 → Glue → Data Catalog → Athena Analytics Pipeline
 
 <br>
 
-![AWS](https://img.shields.io/badge/AWS-Cloud%20Data%20Engineering-FF9900?style=for-the-badge\&logo=amazonaws\&logoColor=white)
-![Amazon S3](https://img.shields.io/badge/Amazon%20S3-Data%20Lake-569A31?style=for-the-badge\&logo=amazons3\&logoColor=white)
-![AWS Glue](https://img.shields.io/badge/AWS%20Glue-ETL%20%26%20Cataloging-FF9900?style=for-the-badge\&logo=amazonaws\&logoColor=white)
-![Amazon Athena](https://img.shields.io/badge/Amazon%20Athena-Serverless%20SQL-232F3E?style=for-the-badge\&logo=amazonaws\&logoColor=white)
-![SQL](https://img.shields.io/badge/SQL-Analytics-336791?style=for-the-badge)
+<img src="https://img.shields.io/badge/AWS-Cloud%20Data%20Engineering-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white" />
+<img src="https://img.shields.io/badge/Amazon%20S3-Data%20Lake-569A31?style=for-the-badge&logo=amazons3&logoColor=white" />
+<img src="https://img.shields.io/badge/AWS%20Glue-Metadata%20%26%20ETL-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white" />
+<img src="https://img.shields.io/badge/Athena-Serverless%20SQL-232F3E?style=for-the-badge&logo=amazonaws&logoColor=white" />
 
 </p>
 
-> **An AWS-based end-to-end data engineering project that demonstrates how sales data can move through cloud object storage, metadata discovery, transformation, and serverless SQL analytics using Amazon S3, AWS Glue, and Amazon Athena.**
+> **A cloud-native AWS data engineering pipeline that uses Amazon S3 for data storage, AWS Glue for schema discovery and cataloging, and Amazon Athena for serverless SQL analytics.**
 
 ---
 
-## 🧭 01 · Engineering Overview
+## 🧭 Project Overview
 
-This project demonstrates the core lifecycle of a cloud data engineering workload:
+Modern analytical platforms increasingly separate **storage, metadata management, and query execution** rather than coupling all three responsibilities into a single database system.
+
+This project demonstrates that architecture using managed AWS services.
+
+The pipeline establishes a simple but extensible path:
 
 ```text
-DATA
- │
- ▼
-┌──────────────────────┐
-│   Amazon S3          │
-│   Cloud Storage      │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│     AWS Glue         │
-│  Catalog / ETL Layer │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│    Glue Catalog      │
-│  Metadata / Schema   │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│   Amazon Athena      │
-│   Serverless SQL     │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│   Analytical Output  │
-│   Business Insights  │
-└──────────────────────┘
+                    SOURCE DATA
+                         │
+                         ▼
+                ┌─────────────────┐
+                │   Amazon S3     │
+                │                 │
+                │ Object Storage  │
+                └────────┬────────┘
+                         │
+                         ▼
+                ┌─────────────────┐
+                │    AWS Glue     │
+                │                 │
+                │ Schema Discovery│
+                │ & Crawler       │
+                └────────┬────────┘
+                         │
+                         ▼
+                ┌─────────────────┐
+                │ Glue Data       │
+                │ Catalog         │
+                │                 │
+                │ Metadata Layer  │
+                └────────┬────────┘
+                         │
+                         ▼
+                ┌─────────────────┐
+                │ Amazon Athena   │
+                │                 │
+                │ Serverless SQL  │
+                └────────┬────────┘
+                         │
+                         ▼
+                ┌─────────────────┐
+                │ Analytical      │
+                │ Results         │
+                └─────────────────┘
 ```
 
-The repository is structured around the AWS services and implementation artifacts required to document this workflow.
+The central architectural idea is:
 
-The current repository contains dedicated areas for:
-
-* Architecture
-* Dataset
-* AWS Glue
-* Amazon Athena
-* Documentation
-* Screenshots
-
-This structure reflects a **cloud-first data engineering workflow** rather than a single SQL analytics exercise.
+> **Store data independently, catalog its structure, then query it without provisioning a dedicated analytical database.**
 
 ---
 
-# 🎯 02 · Problem Statement
+# 🎯 Engineering Objective
 
-Organizations frequently receive business data in file-based formats that need to be made queryable before analysts can extract useful information.
+The objective of the project is to demonstrate a practical AWS-native data pipeline in which:
 
-A traditional approach may require:
+1. Data is persisted in cloud object storage.
+2. AWS Glue discovers and catalogs the data structure.
+3. The Glue Data Catalog provides metadata to downstream consumers.
+4. Amazon Athena queries the cataloged data using SQL.
+5. Analytical consumers can work directly against the cloud data platform.
 
-* Provisioning database infrastructure
-* Managing servers
-* Building ingestion applications
-* Maintaining metadata manually
-* Operating a dedicated query engine
-
-This project explores a more cloud-native approach using managed AWS services.
-
-The engineering objective is:
-
-> **Move sales data into cloud storage, make the data discoverable through metadata cataloging, and expose it for SQL-based analytics through a serverless query engine.**
+This creates a foundation for more advanced data engineering patterns without requiring a continuously running database server.
 
 ---
 
-# 🏗️ 03 · Architecture
+# 🏗️ Architecture
 
-## Current Logical Architecture
+## Logical Architecture
 
 ```text
-                         ┌─────────────────────┐
-                         │     SALES DATA      │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │     AMAZON S3       │
-                         │                     │
-                         │  Object Storage     │
-                         │  Data Lake Layer    │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │      AWS GLUE       │
-                         │                     │
-                         │ Crawler / Metadata  │
-                         │ ETL Capability      │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │   GLUE DATA CATALOG │
-                         │                     │
-                         │ Schema / Metadata   │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │   AMAZON ATHENA     │
-                         │                     │
-                         │ Serverless SQL      │
-                         └──────────┬──────────┘
-                                    │
-                                    ▼
-                         ┌─────────────────────┐
-                         │ ANALYTICAL RESULTS  │
-                         └─────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         DATA PRODUCER                            │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │
+                                │ Data Files
+                                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                         AMAZON S3                                │
+│                                                                  │
+│                    Cloud Object Storage                          │
+│                                                                  │
+│       Durable storage + scalable data lake foundation            │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │
+                                │ Objects / Schema
+                                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                          AWS GLUE                                │
+│                                                                  │
+│                     Glue Crawler                                 │
+│                                                                  │
+│       Discovers file structure and infers metadata               │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │
+                                │ Metadata
+                                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                     GLUE DATA CATALOG                            │
+│                                                                  │
+│              Database / Table / Schema Metadata                  │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │
+                                │ Catalog Metadata
+                                ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                       AMAZON ATHENA                              │
+│                                                                  │
+│                    Serverless SQL Engine                         │
+└───────────────────────────────┬──────────────────────────────────┘
+                                │
+                                ▼
+                     ANALYTICAL RESULTS
 ```
 
 ---
 
-# 🔄 04 · End-to-End Data Flow
+# 🔄 End-to-End Data Flow
 
-The pipeline can be understood as a sequence of distinct engineering responsibilities.
+## Stage 1 — Data Landing
 
-### Stage 01 — Data Landing
-
-Sales data is placed into Amazon S3.
-
-S3 acts as the durable cloud storage layer.
+Source data enters the platform through Amazon S3.
 
 ```text
-Source Data
-     │
-     ▼
+Source File
+    │
+    ▼
 Amazon S3
 ```
 
-### Stage 02 — Metadata Discovery
+S3 acts as the durable storage boundary between the data producer and analytical services.
 
-AWS Glue is used to discover and catalog the structure of data.
+---
+
+## Stage 2 — Schema Discovery
+
+AWS Glue Crawler examines the data location and discovers relevant metadata.
 
 ```text
-S3 Data
-   │
-   ▼
+S3 Objects
+    │
+    ▼
 Glue Crawler
-   │
-   ▼
-Glue Data Catalog
+    │
+    ├── File structure
+    ├── Columns
+    ├── Data types
+    └── Metadata
 ```
 
-The repository includes dedicated documentation for the Glue crawler component.
-
-### Stage 03 — Analytical Access
-
-Amazon Athena provides SQL-based access to the cataloged data.
-
-```text
-Glue Catalog
-      │
-      ▼
-   Athena
-      │
-      ▼
-SQL Analytics
-```
-
-The repository contains a dedicated Athena query artifact:
-
-```text
-athena/
-└── queries.sql
-```
-
-The current query layer demonstrates querying the `sales_data` dataset.
+The discovered information is registered in the Glue Data Catalog.
 
 ---
 
-# 🧩 05 · Service Responsibilities
+## Stage 3 — Metadata Registration
 
-| AWS Service              | Engineering Responsibility                  |
-| ------------------------ | ------------------------------------------- |
-| 🟧 **Amazon S3**         | Cloud object storage / data lake foundation |
-| 🟧 **AWS Glue**          | Metadata discovery and ETL capability       |
-| 🟧 **Glue Data Catalog** | Centralized schema and metadata             |
-| 🟧 **Amazon Athena**     | Serverless SQL analytics                    |
-| **GitHub**               | Source control and technical documentation  |
-
-The architecture intentionally uses managed AWS services to minimize infrastructure management overhead.
-
----
-
-# 🗂️ 06 · Data Lake Design
-
-Amazon S3 provides the storage foundation for the pipeline.
+The Glue Data Catalog provides a structured representation of the data.
 
 Conceptually:
 
 ```text
-s3://<bucket>/
+Glue Catalog
 │
-└── sales/
-    │
-    ├── raw/
-    │
-    └── processed/
+├── Database
+│
+└── Table
+    ├── Column
+    ├── Data Type
+    └── Location
 ```
 
-The exact bucket naming convention should remain environment-specific rather than being hard-coded into the repository.
+This metadata layer allows analytical engines to interact with S3 data using table-oriented semantics.
 
-### Why S3?
+---
 
-S3 provides:
+## Stage 4 — Serverless Querying
+
+Amazon Athena consumes the catalog metadata and executes SQL against the underlying S3 data.
+
+```text
+Athena
+   │
+   ▼
+Glue Catalog
+   │
+   ▼
+S3 Data
+   │
+   ▼
+Query Result
+```
+
+No dedicated analytical database server is required for the query layer.
+
+---
+
+# 🧩 Service Responsibilities
+
+| Service              | Responsibility     | Architectural Role |
+| -------------------- | ------------------ | ------------------ |
+| 🟧 Amazon S3         | Store data objects | Storage            |
+| 🟧 AWS Glue Crawler  | Discover structure | Metadata discovery |
+| 🟧 Glue Data Catalog | Maintain schemas   | Metadata layer     |
+| ⬛ Amazon Athena      | Execute SQL        | Query layer        |
+
+The services are intentionally decoupled so that storage and query compute can evolve independently.
+
+---
+
+# 🗄️ Amazon S3 — Storage Layer
+
+Amazon S3 is the foundation of the architecture.
+
+Instead of loading the data into a traditional database before it can be analyzed, the pipeline keeps the data in object storage and allows analytical services to operate against it.
+
+### Architectural benefits
 
 * Durable object storage
 * Elastic capacity
-* Native integration with AWS analytics services
 * Separation of storage and compute
-* Pay-per-use storage characteristics
+* Native AWS analytics integration
+* Suitable foundation for data lake architectures
 
-This separation is particularly useful for analytical architectures where storage and query execution do not need to be tightly coupled.
+Conceptual layout:
+
+```text
+s3://<bucket>/
+│
+├── raw/
+│   └── source-data
+│
+└── processed/
+    └── analytical-data
+```
+
+The exact bucket name and environment-specific paths should be configured in AWS rather than hard-coded into public documentation.
 
 ---
 
-# 🔎 07 · Metadata Discovery with AWS Glue
+# 🔎 AWS Glue — Metadata Discovery
 
-A data lake becomes significantly more useful when the structure of stored files can be discovered and represented as queryable metadata.
+AWS Glue acts as the metadata discovery layer.
 
-AWS Glue Crawler provides that discovery mechanism.
-
-```text
-                S3
-                 │
-                 │ File/Object Discovery
-                 ▼
-          ┌──────────────┐
-          │ Glue Crawler │
-          └──────┬───────┘
-                 │
-                 │ Schema Discovery
-                 ▼
-          ┌──────────────┐
-          │ Glue Catalog │
-          └──────┬───────┘
-                 │
-                 ▼
-              Athena
-```
-
-The repository contains:
+A Glue Crawler can inspect the configured S3 location and identify the structure required for downstream querying.
 
 ```text
-glue/
-└── crawler.md
+                    AWS GLUE
+                       │
+              ┌────────┴────────┐
+              │                 │
+              ▼                 ▼
+          Discovery          Cataloging
+              │                 │
+              └────────┬────────┘
+                       ▼
+                Glue Data Catalog
 ```
 
-as the documentation boundary for this component.
+The crawler establishes the metadata required for Athena to understand the data.
 
 ---
 
-# 🧠 08 · Why a Data Catalog Matters
+# 🗂️ Glue Data Catalog
 
-Without a metadata catalog, an object store primarily exposes files.
+The Glue Data Catalog is the metadata bridge between S3 and Athena.
 
-With a catalog, analytical services can work with:
+Without catalog metadata:
 
 ```text
-Database
-   │
-   └── Table
-        │
-        ├── Column
-        ├── Data Type
-        └── Metadata
+S3 → Files
 ```
 
-This creates a bridge between:
+With catalog metadata:
 
-**file-based cloud storage**
+```text
+S3
+ │
+ ▼
+Glue Catalog
+ │
+ └── Table
+      ├── Schema
+      ├── Columns
+      ├── Types
+      └── Location
+```
 
-and
-
-**structured analytical querying**.
-
-The Glue Catalog therefore acts as an important abstraction between the storage and query layers.
+This abstraction makes object-storage data accessible through SQL-oriented analytical workflows.
 
 ---
 
-# ⚡ 09 · Serverless Analytics with Amazon Athena
+# ⚡ Amazon Athena — Query Layer
 
-Amazon Athena provides the SQL consumption layer.
+Amazon Athena provides serverless SQL querying over the data stored in S3.
 
-The project uses Athena to query sales data without requiring a traditional database server to be provisioned and maintained.
-
-Current repository query:
-
-```sql
-SELECT *
-FROM sales_data;
-```
-
-is stored in:
+The architecture therefore separates:
 
 ```text
-athena/queries.sql
+Storage
+   ↓
+Amazon S3
+
+Metadata
+   ↓
+Glue Data Catalog
+
+Compute
+   ↓
+Amazon Athena
 ```
 
-The analytical pattern is therefore:
+This separation is one of the key design characteristics of the pipeline.
+
+---
+
+# 🧠 Why Serverless?
+
+The project intentionally uses managed AWS services instead of requiring a continuously running analytical database.
+
+### Traditional approach
 
 ```text
+Application
+    │
+    ▼
+Database Server
+    │
+    ▼
+Analytics
+```
+
+### This architecture
+
+```text
+Data
+ │
+ ▼
 S3
  │
  ▼
@@ -337,32 +365,124 @@ Glue Catalog
 Athena
  │
  ▼
-SQL Result
+Analytics
 ```
+
+This reduces infrastructure management requirements and allows the analytical query layer to operate on demand.
 
 ---
 
-# 🧮 10 · Analytical Query Layer
+# 📊 Analytical Query Pattern
 
-The current repository keeps Athena queries separate from the infrastructure/documentation areas:
+Once the Glue Catalog contains the required table metadata, Athena can expose the data through SQL.
 
-```text
-athena/
-└── queries.sql
-```
+Typical analytical workloads can include:
 
-This separation is useful because the query layer can evolve independently from the AWS setup documentation.
-
-Potential analytical extensions include:
+### Total Sales
 
 ```sql
--- Total sales
-SELECT SUM(sales)
+SELECT
+    SUM(sales) AS total_sales
 FROM sales_data;
 ```
 
+### Sales by Category
+
 ```sql
--- Sales by category
+SELECT
+    category,
+    SUM(sales) AS total_sales
+FROM sales_data
+GROUP BY category
+ORDER BY total_sales DESC;
+```
+
+### Top Products
+
+```sql
+SELECT
+    product,
+    SUM(sales) AS total_sales
+FROM sales_data
+GROUP BY product
+ORDER BY total_sales DESC
+LIMIT 10;
+```
+
+These examples illustrate the analytical access pattern; the exact schema and query logic should match the dataset available in the AWS environment.
+
+---
+
+# 🧱 Separation of Responsibilities
+
+One of the main engineering principles demonstrated by the architecture is **separation of concerns**.
+
+```text
+┌──────────────┐
+│     S3       │
+│    STORE     │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│     Glue     │
+│   DISCOVER   │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│ Glue Catalog │
+│   DESCRIBE   │
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐
+│    Athena    │
+│    QUERY     │
+└──────────────┘
+```
+
+Each component performs a distinct responsibility rather than combining storage, metadata, and computation into a single service.
+
+---
+
+# 💰 Cost Engineering
+
+Serverless does not mean cost-free.
+
+The architecture should therefore be designed with query and storage efficiency in mind.
+
+## S3
+
+Potential cost drivers:
+
+* Storage volume
+* Request volume
+* Data retrieval
+
+## Glue
+
+Potential cost drivers:
+
+* Crawler execution
+* ETL processing when introduced
+
+## Athena
+
+The major analytical consideration is the amount of data scanned by queries.
+
+A query such as:
+
+```sql
+SELECT *
+FROM sales_data;
+```
+
+may scan substantially more data than a targeted query.
+
+Prefer:
+
+```sql
 SELECT
     category,
     SUM(sales) AS total_sales
@@ -370,500 +490,355 @@ FROM sales_data
 GROUP BY category;
 ```
 
+when only the required business metric is needed.
+
+---
+
+# ⚡ Performance Engineering
+
+As the dataset grows, query performance becomes increasingly important.
+
+## Partitioning
+
+Partition data by an appropriate high-value filtering dimension, commonly a date field where the workload supports it.
+
+```text
+sales/
+├── year=2025/
+│   ├── month=01/
+│   └── month=02/
+│
+└── year=2026/
+    ├── month=01/
+    └── month=02/
+```
+
+This can reduce unnecessary data scanning for filtered workloads.
+
+## Columnar Storage
+
+For analytical datasets, columnar formats such as Parquet can reduce the amount of data that needs to be scanned compared with row-oriented formats.
+
+## Projection
+
+Select only the required columns.
+
 ```sql
--- Top-performing products
 SELECT
-    product,
-    SUM(sales) AS total_sales
-FROM sales_data
-GROUP BY product
-ORDER BY total_sales DESC;
+    category,
+    sales
+FROM sales_data;
 ```
 
-> These examples represent natural extensions of the current analytical layer and are not presented as existing repository queries.
-
----
-
-# 🔐 11 · Security Design
-
-A cloud data pipeline should separate **data access** from **source-code management**.
-
-The repository should never contain:
-
-```text
-❌ AWS Access Keys
-❌ Secret Keys
-❌ Session Tokens
-❌ Passwords
-❌ Hard-coded credentials
-```
-
-A production-oriented implementation should use:
-
-* IAM policies
-* Least-privilege access
-* IAM roles where appropriate
-* Controlled S3 bucket permissions
-* Encryption at rest
-* Encryption in transit
-* Environment-specific configuration
-
----
-
-# 💰 12 · Cost-Aware Architecture
-
-One of the advantages of this design is the use of managed/serverless services.
-
-```text
-Storage
-  → S3
-
-Metadata
-  → Glue Catalog
-
-Query Compute
-  → Athena
-```
-
-The architecture avoids requiring a continuously running database server solely for analytical querying.
-
-However, cost still needs to be controlled.
-
-Important considerations include:
-
-* Athena query volume
-* Data scanned per query
-* File format
-* Partitioning
-* Query selectivity
-* S3 storage footprint
-* Glue crawler frequency
-
----
-
-# ⚙️ 13 · Performance Engineering
-
-For small datasets, direct querying is sufficient.
-
-As data volume grows, the architecture should evolve.
-
-### Current conceptual workload
-
-```text
-S3 Files
-   ↓
-Athena
-   ↓
-SQL Query
-```
-
-### Optimized analytical workload
-
-```text
-S3
- │
- ├── Partitioned Data
- │
- ├── Columnar Storage
- │
- └── Optimized File Layout
-          │
-          ▼
-       Athena
-```
-
-Potential optimization strategies include:
-
-### Partitioning
-
-Partition data using appropriate business dimensions such as date where applicable.
-
-### Columnar formats
-
-Use formats such as Parquet when appropriate to reduce unnecessary data scanning.
-
-### Predicate filtering
-
-Avoid scanning complete datasets when only a subset is required.
-
-### Query discipline
-
-Select only required columns rather than defaulting to:
+rather than:
 
 ```sql
 SELECT *
+FROM sales_data;
 ```
 
-for production analytical workloads.
+## Query Filtering
+
+Push filters into the query whenever possible.
+
+```sql
+SELECT
+    category,
+    SUM(sales)
+FROM sales_data
+WHERE year = 2026
+GROUP BY category;
+```
 
 ---
 
-# 🧪 14 · Data Quality
+# 🧪 Data Quality Strategy
 
-A production version should validate data before exposing it to analytical consumers.
+A production-grade extension should introduce validation before data becomes available for analytics.
 
-Recommended validation layers:
+### Schema checks
 
 ```text
-                 Incoming Data
-                       │
-                       ▼
-               Schema Validation
-                       │
-                       ▼
-                Null Validation
-                       │
-                       ▼
-              Duplicate Detection
-                       │
-                       ▼
-             Business Rule Checks
-                       │
-                       ▼
-                Queryable Data
+Expected Schema
+      │
+      ▼
+Incoming Data
+      │
+      ▼
+Schema Validation
 ```
 
-Potential checks include:
+### Record checks
 
-* Schema consistency
-* Required columns
-* Data-type consistency
-* Null thresholds
-* Duplicate records
+* Null validation
+* Duplicate detection
 * Invalid numeric values
-* Unexpected category/product values
-* Record-count reconciliation
+* Unexpected categorical values
+* Missing required fields
 
-The current repository does not claim an automated data-quality framework.
+### Analytical checks
 
----
-
-# 📦 15 · Repository Structure
-
-```text
-aws-end-to-end-data-engineering-project/
-│
-├── architecture/
-│   └── README.md
-│
-├── athena/
-│   └── queries.sql
-│
-├── dataset/
-│   └── Project dataset assets
-│
-├── docs/
-│   └── project-report.md
-│
-├── glue/
-│   └── crawler.md
-│
-├── screenshots/
-│   └── .gitkeep
-│
-├── LICENSE
-│
-└── README.md
-```
-
-The repository structure separates:
-
-* Architecture documentation
-* Query implementation
-* Dataset assets
-* Project documentation
-* Glue configuration documentation
-* Screenshot/evidence area
-
-The current repository confirms these directories and files.
-
----
-
-# 🧱 16 · Engineering Separation of Concerns
-
-The repository follows a useful conceptual separation:
-
-```text
-┌─────────────────────────────────────┐
-│          DOCUMENTATION              │
-│ architecture/ + docs/              │
-└──────────────────┬──────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────┐
-│        CLOUD DATA SERVICES           │
-│ S3 + Glue + Glue Catalog + Athena   │
-└──────────────────┬──────────────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────┐
-│          ANALYTICAL LOGIC            │
-│          athena/queries.sql         │
-└─────────────────────────────────────┘
-```
-
-This makes it easier to reason about the project as a system rather than as a collection of screenshots and commands.
-
----
-
-# 📊 17 · Architecture Decision Record
-
-### Decision: Object Storage as the Data Foundation
-
-**Chosen:** Amazon S3
-
-**Reason:**
-
-* Decouples storage from compute
-* Native AWS integration
-* Suitable for file-based analytical workloads
-* Scales independently of query processing
-
----
-
-### Decision: Metadata Management
-
-**Chosen:** AWS Glue Data Catalog
-
-**Reason:**
-
-* Integrates naturally with S3
-* Provides discoverable schema metadata
-* Can be consumed by Athena
-
----
-
-### Decision: Query Engine
-
-**Chosen:** Amazon Athena
-
-**Reason:**
-
-* Serverless
-* SQL-based
-* Directly integrates with cataloged S3 data
-* Avoids dedicated query infrastructure for this workload
-
----
-
-# 🔁 18 · Failure & Recovery Considerations
-
-A production pipeline should consider failures at each boundary.
-
-```text
-S3
- │
- ├── Upload Failure
- │
- ▼
-Glue
- │
- ├── Crawl Failure
- │
- ▼
-Catalog
- │
- ├── Schema Issue
- │
- ▼
-Athena
- │
- ├── Query Failure
- │
- ▼
-Consumer
-```
-
-Potential operational controls:
-
-* CloudWatch monitoring
-* Retry mechanisms
-* Failure notifications
-* Job/crawler status monitoring
-* Query error monitoring
+* Row-count reconciliation
+* Aggregate validation
+* Sales-total reconciliation
 * Data freshness checks
 
-These are recommended production extensions rather than claims about the current repository.
+A mature implementation could introduce automated data-quality gates before exposing processed datasets to Athena.
 
 ---
 
-# 🛡️ 19 · Governance Considerations
+# 🔐 Security Architecture
 
-As the dataset and number of consumers grow, governance becomes increasingly important.
+Security should be implemented around **identity, permissions, storage, and secrets**.
 
-Future governance capabilities could include:
+### IAM
 
-* IAM-based access control
-* S3 bucket policies
-* Data classification
-* Metadata ownership
-* Dataset documentation
-* Audit logging
+Use least-privilege IAM policies for:
+
+* S3 access
+* Glue access
+* Athena execution
+* Catalog operations
+
+### S3
+
+Recommended controls:
+
+* Block public access
+* Bucket policies
+* Encryption at rest
+* Controlled object permissions
+
+### Credentials
+
+Never store:
+
+```text
+❌ AWS Access Key
+❌ AWS Secret Key
+❌ Session Token
+❌ Password
+❌ Database Credential
+```
+
+inside the repository.
+
+Use AWS-managed identity mechanisms and secure credential configuration instead.
+
+---
+
+# 🔁 Reliability & Operational Considerations
+
+A larger implementation should treat every pipeline boundary as a possible failure point.
+
+```text
+S3
+ │
+ ├── Missing / Invalid File
+ │
+ ▼
+Glue Crawler
+ │
+ ├── Schema Discovery Failure
+ │
+ ▼
+Glue Catalog
+ │
+ ├── Metadata Issue
+ │
+ ▼
+Athena
+ │
+ ├── Query / Permission Failure
+ │
+ ▼
+Analytics Consumer
+```
+
+Recommended operational additions include:
+
+* CloudWatch monitoring
+* Alerting
+* Data freshness checks
+* Failed crawler detection
 * Query monitoring
-* Data retention policies
-
-The goal is to evolve from:
-
-```text
-Data Lake
-```
-
-toward:
-
-```text
-Governed Data Platform
-```
+* Access logging
+* Operational runbooks
 
 ---
 
-# 🚀 20 · Production Evolution
+# 🏛️ Production Evolution
 
-The current project can evolve into a more complete AWS data platform.
+The current architecture provides a foundation rather than the final form of a large-scale platform.
 
-### Current
+## Current
 
 ```text
 S3
  ↓
-Glue
+Glue Crawler
  ↓
-Glue Catalog
+Glue Data Catalog
  ↓
 Athena
 ```
 
-### Next Stage
+## Expanded Batch Architecture
 
 ```text
-Source Systems
-      │
-      ▼
-  S3 Landing
-      │
-      ▼
-  Glue ETL
-      │
-      ▼
-Processed S3
-      │
-      ▼
-Glue Catalog
-      │
-      ▼
-Athena
-      │
-      ▼
-BI / Analytics
+                 Source Systems
+                      │
+                      ▼
+                 S3 Landing
+                      │
+                      ▼
+                  Glue ETL
+                      │
+                      ▼
+              S3 Processed Layer
+                      │
+                      ▼
+                Glue Catalog
+                      │
+                      ▼
+                   Athena
+                      │
+                      ▼
+                BI / Analytics
 ```
 
-### Mature Architecture
+## Mature Architecture
 
 ```text
-                 ┌──────────────┐
-                 │ Source APIs  │
-                 └──────┬───────┘
-                        │
-                 ┌──────▼───────┐
-                 │     S3       │
-                 │ Landing Zone  │
-                 └──────┬───────┘
-                        │
-                 ┌──────▼───────┐
-                 │  Glue ETL    │
-                 │ Transform    │
-                 └──────┬───────┘
-                        │
-                 ┌──────▼───────┐
-                 │ Processed S3 │
-                 └──────┬───────┘
-                        │
-                 ┌──────▼───────┐
-                 │ Glue Catalog │
-                 └──────┬───────┘
-                        │
-                 ┌──────▼───────┐
-                 │    Athena    │
-                 └──────┬───────┘
-                        │
-              ┌─────────┴─────────┐
-              ▼                   ▼
-          BI / SQL           Data Consumers
+                         SOURCE SYSTEMS
+                              │
+                 ┌────────────┼────────────┐
+                 │            │            │
+                 ▼            ▼            ▼
+               APIs         Files       Databases
+                 │            │            │
+                 └────────────┼────────────┘
+                              ▼
+                       ┌────────────┐
+                       │    S3      │
+                       │  Landing   │
+                       └─────┬──────┘
+                             │
+                             ▼
+                       ┌────────────┐
+                       │ Glue / ETL │
+                       └─────┬──────┘
+                             │
+                             ▼
+                     ┌───────────────┐
+                     │ S3 Processed  │
+                     │ Analytical    │
+                     └───────┬───────┘
+                             │
+                             ▼
+                      ┌────────────┐
+                      │    Glue    │
+                      │   Catalog  │
+                      └─────┬──────┘
+                            │
+                            ▼
+                      ┌────────────┐
+                      │  Athena    │
+                      └─────┬──────┘
+                            │
+                 ┌──────────┴──────────┐
+                 ▼                     ▼
+              BI Tools            Data Analysts
 ```
 
 ---
 
-# 📈 21 · Engineering Maturity Matrix
+# 📈 Engineering Maturity Roadmap
 
-| Capability                 | Current Repository | Evolution |
-| -------------------------- | :----------------: | :-------: |
-| S3 Storage                 |          ✅         |     —     |
-| AWS Glue                   |          ✅         |     —     |
-| Glue Catalog               |          ✅         |     —     |
-| Athena                     |          ✅         |     —     |
-| SQL Analytics              |          ✅         |     —     |
-| Architecture Documentation |         🔶         |   Expand  |
-| Data Quality Automation    |          —         |  Planned  |
-| Automated ETL              |         🔶         |   Expand  |
-| Monitoring                 |          —         |  Planned  |
-| Alerting                   |          —         |  Planned  |
-| CI/CD                      |          —         |  Planned  |
-| Governance                 |          —         |  Planned  |
-| Infrastructure as Code     |          —         |  Planned  |
-
-**Legend**
-
-* ✅ Implemented
-* 🔶 Present / documented but limited
-* — Not currently implemented
+| Capability             | Current Architecture | Future Evolution |
+| ---------------------- | :------------------: | ---------------: |
+| S3 Data Storage        |           ✅          |                — |
+| Glue Crawler           |           ✅          |                — |
+| Glue Data Catalog      |           ✅          |                — |
+| Athena SQL             |           ✅          |                — |
+| Basic Analytics        |           ✅          |           Expand |
+| Automated ETL          |           —          |          Planned |
+| Data Quality Gates     |           —          |          Planned |
+| Partitioned Data Lake  |           —          |          Planned |
+| Monitoring             |           —          |          Planned |
+| Alerting               |           —          |          Planned |
+| CI/CD                  |           —          |          Planned |
+| Infrastructure as Code |           —          |          Planned |
+| Data Governance        |           —          |          Planned |
+| Orchestration          |           —          |          Planned |
 
 ---
 
-# 🧠 22 · Engineering Lessons
+# 🧭 Architecture Decisions
 
-This project demonstrates several core cloud data engineering principles:
+## Why Amazon S3?
 
-### Storage and compute separation
+Because the pipeline requires a scalable, durable storage layer that remains independent from query compute.
 
-S3 stores the data while Athena provides query execution.
+## Why AWS Glue?
 
-### Metadata-driven analytics
+Because the platform needs metadata discovery and a managed catalog layer that integrates directly with S3 and Athena.
 
-Glue Catalog bridges raw cloud storage and structured querying.
+## Why Glue Data Catalog?
 
-### Serverless-first design
+Because analytical engines require structured metadata to interpret files stored in object storage as queryable datasets.
 
-Managed AWS services reduce the need for continuously running infrastructure.
+## Why Athena?
 
-### Layered architecture
-
-Each AWS service has a distinct responsibility.
-
-### Cost-aware querying
-
-Athena makes query efficiency directly relevant to cloud cost.
+Because the workload is analytical SQL and does not require a permanently running query server.
 
 ---
 
-# 🧰 23 · Technology Stack
+# 📐 Design Principles
 
-| Category           | Technology            |
-| ------------------ | --------------------- |
-| ☁️ Cloud           | Amazon Web Services   |
-| 🗄️ Storage        | Amazon S3             |
-| 🔧 ETL / Metadata  | AWS Glue              |
-| 🗂️ Catalog        | AWS Glue Data Catalog |
-| 🔎 Query Engine    | Amazon Athena         |
-| 💻 Query Language  | SQL                   |
-| 📁 Version Control | Git                   |
-| 🌐 Repository      | GitHub                |
+The architecture follows five core principles:
+
+### 01 — Separation of Storage and Compute
+
+S3 stores data independently of Athena's query execution.
+
+### 02 — Metadata-Driven Analytics
+
+Glue Catalog provides schema information between storage and query layers.
+
+### 03 — Managed Services First
+
+AWS-managed services reduce infrastructure administration.
+
+### 04 — Cost-Aware Querying
+
+Athena query design directly affects analytical cost.
+
+### 05 — Evolution Without Rebuild
+
+The current architecture can be extended with ETL, orchestration, data-quality, monitoring, and governance layers.
 
 ---
 
-# ▶️ 24 · Getting Started
+# 🛠️ Technology Stack
+
+| Layer                 | Technology            |
+| --------------------- | --------------------- |
+| ☁️ Cloud Platform     | Amazon Web Services   |
+| 🗄️ Storage           | Amazon S3             |
+| 🔍 Metadata Discovery | AWS Glue Crawler      |
+| 🗂️ Metadata          | AWS Glue Data Catalog |
+| ⚡ Query Engine        | Amazon Athena         |
+| 💻 Query Language     | SQL                   |
+| 🌐 Version Control    | Git / GitHub          |
+
+---
+
+# 🚀 Getting Started
 
 ## Prerequisites
 
-You need:
+You will need:
 
 * An AWS account
 * IAM permissions for the required services
@@ -874,31 +849,19 @@ You need:
 
 ---
 
-## Step 1 — Clone
+## 1. Clone the Repository
 
 ```bash
-git clone https://github.com/syedsaud15/aws-end-to-end-data-engineering-project.git
+git clone https://github.com/syedsaud15/aws-data-engineering-pipeline.git
 
-cd aws-end-to-end-data-engineering-project
+cd aws-data-engineering-pipeline
 ```
 
 ---
 
-## Step 2 — Prepare the Dataset
+## 2. Create an S3 Data Location
 
-Review the contents under:
-
-```text
-dataset/
-```
-
-Upload the required source data to an appropriate S3 location.
-
----
-
-## Step 3 — Configure S3
-
-Create or use an S3 bucket and establish an appropriate landing path.
+Create an S3 bucket or use an existing bucket.
 
 Example:
 
@@ -908,193 +871,202 @@ s3://your-bucket/
     └── raw/
 ```
 
-Do not commit bucket credentials or sensitive configuration to GitHub.
+Upload the source dataset into the configured location.
 
 ---
 
-## Step 4 — Configure AWS Glue
+## 3. Configure AWS Glue
 
-Configure a Glue crawler against the appropriate S3 location.
+Create a Glue database and configure a crawler against the appropriate S3 location.
 
-The repository's Glue documentation is located at:
+The crawler should be configured to discover the structure of the source data.
+
+---
+
+## 4. Run the Glue Crawler
+
+Run the crawler and allow Glue to discover the schema.
+
+Verify:
 
 ```text
-glue/crawler.md
+Database
+   │
+   └── Table
+        ├── Columns
+        ├── Data Types
+        └── S3 Location
 ```
 
 ---
 
-## Step 5 — Verify Glue Catalog
+## 5. Query Through Athena
 
-After the crawler completes, verify that the expected database/table metadata is available in the Glue Data Catalog.
+Open Amazon Athena and select the database generated through the Glue Catalog.
 
----
+Start with a validation query:
 
-## Step 6 — Query with Athena
-
-Open:
-
-```text
-athena/queries.sql
+```sql
+SELECT *
+FROM sales_data
+LIMIT 10;
 ```
 
-and execute the analytical SQL against the cataloged dataset.
+Then move toward analytical queries.
 
 ---
 
-# 🧪 25 · Validation Checklist
+# 🧪 Validation Checklist
 
-Before considering the pipeline operational, verify:
+Before considering the pipeline operational:
 
 ```text
-✓ Data exists in S3
-✓ S3 path is correct
-✓ Glue crawler can access the path
-✓ Glue Catalog contains the expected table
-✓ Table schema is correct
+✓ Source file uploaded to S3
+✓ S3 path is accessible
+✓ Glue crawler can access the data
+✓ Crawler completes successfully
+✓ Glue Catalog table exists
+✓ Schema is correct
 ✓ Athena can resolve the table
-✓ SQL query executes successfully
-✓ Query results are logically valid
+✓ Validation query returns records
+✓ Analytical queries return expected results
+✓ Access permissions are correctly configured
 ```
 
 ---
 
-# 💵 26 · Cost Optimization Checklist
-
-For larger datasets:
+# 💵 Cost Optimization Checklist
 
 ```text
-✓ Avoid SELECT *
-✓ Use partitioning
-✓ Prefer columnar formats
-✓ Filter early
-✓ Monitor Athena bytes scanned
-✓ Avoid unnecessary crawler runs
-✓ Remove unused S3 objects
-✓ Review query patterns regularly
+✓ Avoid unnecessary SELECT *
+✓ Use column projection
+✓ Filter data early
+✓ Partition large datasets
+✓ Prefer columnar storage
+✓ Monitor Athena data scanned
+✓ Avoid unnecessary crawler executions
+✓ Remove obsolete objects
+✓ Review query patterns periodically
 ```
 
 ---
 
-# 🔒 27 · Security Checklist
+# 🔒 Security Checklist
 
 ```text
-✓ Never commit AWS credentials
+✓ Block public S3 access
 ✓ Use least-privilege IAM
-✓ Restrict S3 access
-✓ Encrypt sensitive data
-✓ Separate development and production resources
-✓ Monitor access where required
-✓ Review IAM permissions periodically
+✓ Never commit credentials
+✓ Encrypt data where required
+✓ Restrict Glue permissions
+✓ Restrict Athena access
+✓ Separate environments
+✓ Audit access where appropriate
 ```
 
 ---
 
-# 📚 28 · Documentation Assets
+# 📂 Repository
 
-### Architecture
-
-```text
-architecture/README.md
-```
-
-### Glue
+This repository intentionally keeps the implementation lightweight and focused on the core AWS data engineering architecture.
 
 ```text
-glue/crawler.md
+aws-data-engineering-pipeline/
+│
+└── README.md
 ```
 
-### Athena
+The current repository contains the project documentation and defines the pipeline architecture around:
 
 ```text
-athena/queries.sql
+Amazon S3
+    ↓
+AWS Glue Crawler
+    ↓
+Glue Data Catalog
+    ↓
+Amazon Athena
 ```
-
-### Project Documentation
-
-```text
-docs/project-report.md
-```
-
-### Screenshots
-
-```text
-screenshots/
-```
-
-These assets provide separate documentation boundaries instead of placing every implementation detail into the root README.
 
 ---
 
-# ⭐ 29 · What This Project Demonstrates
+# 🎓 Engineering Skills Demonstrated
 
 ### Cloud Data Engineering
 
-* AWS architecture
+* AWS
 * Amazon S3
 * AWS Glue
 * Glue Data Catalog
 * Amazon Athena
 
-### Data Pipeline Concepts
+### Data Platform Concepts
 
-* Data landing
-* Metadata discovery
-* Schema cataloging
-* Serverless querying
-* Analytical consumption
+* Data lake architecture
+* Metadata management
+* Schema discovery
+* Serverless analytics
+* Storage/compute separation
+
+### Analytical Engineering
+
+* SQL
+* Aggregation
+* Filtering
+* Ranking
+* Business-oriented analysis
 
 ### Engineering Practices
 
-* Separation of concerns
-* Version-controlled SQL
-* Architecture documentation
-* Security-aware design
-* Cost-aware analytical design
+* Architecture design
+* Security awareness
+* Cost optimization
+* Performance considerations
 * Reproducibility
+* Technical documentation
 
 ---
 
-# 🧭 30 · Project Positioning
+# 🌟 Why This Architecture Matters
 
-This project represents the **cloud data platform foundation** of a modern AWS analytical workflow.
-
-The key engineering pattern is:
+The project demonstrates a foundational cloud data engineering pattern:
 
 ```text
-          STORE
-            │
-            ▼
-          CATALOG
-            │
-            ▼
-         QUERY
-            │
-            ▼
-        ANALYZE
+              STORE
+                │
+                ▼
+             CATALOG
+                │
+                ▼
+              QUERY
+                │
+                ▼
+             ANALYZE
 ```
 
-implemented using:
+implemented through:
 
 ```text
-Amazon S3
-    +
-AWS Glue
-    +
-Glue Data Catalog
-    +
-Amazon Athena
+      Amazon S3
+          +
+      AWS Glue
+          +
+   Glue Data Catalog
+          +
+     Amazon Athena
 ```
 
-The architecture intentionally keeps storage, metadata, transformation capability, and query execution as separate responsibilities.
+The important engineering idea is not simply the use of four AWS services.
+
+It is the **separation of responsibilities between storage, metadata, and computation**.
 
 ---
 
-# 👨‍💻 31 · Author
+# 👨‍💻 Author
 
 ## Syed Saud Alam
 
-**Data Engineer | Cloud Data Engineering | Big Data | AWS | Databricks | SQL**
+**Data Engineer | AWS | Databricks | SQL | Cloud Data Engineering**
 
 ### GitHub
 
@@ -1106,40 +1078,43 @@ https://www.linkedin.com/in/syed-saud-dev/
 
 ---
 
-# ☁️ Final Architecture Summary
+## ☁️ Final Architecture
 
 ```text
-                    AWS CLOUD
-                       │
-                       ▼
-                ┌─────────────┐
-                │     S3      │
-                │   STORAGE   │
-                └──────┬──────┘
-                       │
-                       ▼
-                ┌─────────────┐
-                │    GLUE     │
-                │  DISCOVERY  │
-                └──────┬──────┘
-                       │
-                       ▼
-                ┌─────────────┐
-                │    GLUE     │
-                │   CATALOG   │
-                └──────┬──────┘
-                       │
-                       ▼
-                ┌─────────────┐
-                │   ATHENA    │
-                │ SERVERLESS  │
-                │    SQL      │
-                └──────┬──────┘
-                       │
-                       ▼
-                ┌─────────────┐
-                │  INSIGHTS   │
-                └─────────────┘
+                         AWS DATA PLATFORM
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │    Amazon S3    │
+                       │                 │
+                       │     STORAGE     │
+                       └────────┬────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │   AWS GLUE      │
+                       │                 │
+                       │   DISCOVERY     │
+                       └────────┬────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │  GLUE CATALOG   │
+                       │                 │
+                       │    METADATA     │
+                       └────────┬────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │ AMAZON ATHENA   │
+                       │                 │
+                       │  SERVERLESS SQL │
+                       └────────┬────────┘
+                                │
+                                ▼
+                       ┌─────────────────┐
+                       │    INSIGHTS     │
+                       └─────────────────┘
 ```
 
-> **A practical AWS data engineering implementation demonstrating how cloud object storage, metadata management, and serverless SQL can be composed into a simple, cost-conscious analytical data platform.**
+> **A focused AWS data engineering implementation demonstrating how object storage, metadata discovery, cataloging, and serverless SQL can be composed into a cost-conscious analytical data platform.**
